@@ -51,7 +51,7 @@ public class MediaSegmentManager : IMediaSegmentManager
     }
 
     /// <inheritdoc/>
-    public async Task RunSegmentPluginProviders(BaseItem baseItem, LibraryOptions libraryOptions, bool overwrite, CancellationToken cancellationToken)
+    public async Task RunSegmentPluginProviders(BaseItem baseItem, LibraryOptions libraryOptions, bool forceOverwrite, CancellationToken cancellationToken)
     {
         var providers = _segmentProviders
             .Where(e => !libraryOptions.DisabledMediaSegmentProviders.Contains(GetProviderId(e.Name)))
@@ -70,9 +70,9 @@ public class MediaSegmentManager : IMediaSegmentManager
 
         using var db = await _dbProvider.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
 
-        if (!overwrite && (await db.MediaSegments.AnyAsync(e => e.ItemId.Equals(baseItem.Id), cancellationToken).ConfigureAwait(false)))
+        if (!forceOverwrite && (await db.MediaSegments.AnyAsync(e => e.ItemId.Equals(baseItem.Id) && !e.DeleteOnScan, cancellationToken).ConfigureAwait(false)))
         {
-            _logger.LogDebug("Skip {MediaPath} as it already contains media segments", baseItem.Path);
+            _logger.LogDebug("Skip {MediaPath} as it already contains media segments that should not be regeneraded", baseItem.Path);
             return;
         }
 
@@ -190,7 +190,8 @@ public class MediaSegmentManager : IMediaSegmentManager
             EndTicks = segment.EndTicks,
             ItemId = segment.ItemId,
             StartTicks = segment.StartTicks,
-            Type = segment.Type
+            Type = segment.Type,
+            DeleteOnScan = segment.DeleteOnScan
         };
     }
 
@@ -203,7 +204,8 @@ public class MediaSegmentManager : IMediaSegmentManager
             ItemId = segment.ItemId,
             StartTicks = segment.StartTicks,
             Type = segment.Type,
-            SegmentProviderId = segmentProviderId
+            SegmentProviderId = segmentProviderId,
+            DeleteOnScan = segment.DeleteOnScan
         };
     }
 
